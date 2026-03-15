@@ -48,7 +48,16 @@ async function callForageTool(toolName: string, args: Record<string, unknown>) {
       }
     });
     
+    const initText = await initResponse.text();
+    if (initResponse.status !== 200 || !initText.includes('protocolVersion')) {
+      console.error('Init failed:', initResponse.status, initText);
+      return { error: 'Failed to initialize: ' + initText.slice(0, 100) };
+    }
+    
     sessionId = initResponse.headers.get('mcp-session-id');
+    if (!sessionId) {
+      return { error: 'No session ID returned' };
+    }
   }
 
   const response = await makeRequest({
