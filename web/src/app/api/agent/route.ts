@@ -14,21 +14,49 @@ const tools: Record<string, { description: string; params: string[] }> = {
   skill_tech_stack: { description: "Tech stack analysis", params: ["domain"] },
 };
 
+let sessionId: string | null = null;
+
 async function callForageTool(toolName: string, args: Record<string, unknown>) {
   if (!FORAGE_TOKEN) {
     return { error: "No API token configured" };
   }
-  
-  const response = await fetch(`${FORAGE_URL}/?token=${FORAGE_TOKEN}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream' },
-    body: JSON.stringify({
+
+  async function makeRequest(body: object, session?: string) {
+    const headers: Record<string, string> = { 
+      'Content-Type': 'application/json', 
+      'Accept': 'application/json, text/event-stream' 
+    };
+    if (session) headers['mcp-session-id'] = session;
+    
+    const response = await fetch(`${FORAGE_URL}/?token=${FORAGE_TOKEN}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
+    return response;
+  }
+
+  if (!sessionId) {
+    const initResponse = await makeRequest({
       jsonrpc: '2.0',
       id: 1,
-      method: 'tools/call',
-      params: { name: toolName, arguments: args }
-    })
-  });
+      method: 'initialize',
+      params: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'forage-landing', version: '1.0' }
+      }
+    });
+    
+    sessionId = initResponse.headers.get('mcp-session-id');
+  }
+
+  const response = await makeRequest({
+    jsonrpc: '2.0',
+    id: 2,
+    method: 'tools/call',
+    params: { name: toolName, arguments: args }
+  }, sessionId!);
 
   const text = await response.text();
   
