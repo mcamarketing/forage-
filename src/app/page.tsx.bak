@@ -1,0 +1,298 @@
+"use client";
+
+import { Navbar } from '@/components/Navbar';
+import { HeroSection } from '@/components/HeroSection';
+import { ProblemSection } from '@/components/ProblemSection';
+import { MechanismSection } from '@/components/MechanismSection';
+import { ValueStackSection } from '@/components/ValueStackSection';
+import { SkillsSection } from '@/components/SkillsSection';
+import { HowItWorksSection } from '@/components/HowItWorksSection';
+import { SocialProofSection } from '@/components/SocialProofSection';
+import { PricingSection } from '@/components/PricingSection';
+import { GuaranteeSection } from '@/components/GuaranteeSection';
+import { FAQSection } from '@/components/FAQSection';
+import { FinalCTASection, Footer } from '@/components/FinalCTASection';
+import { AnAgentChat, createAnChat } from "@21st-sdk/react";
+import "@21st-sdk/react/styles.css";
+import { useChat } from '@ai-sdk/react';
+import { useState, useEffect, useMemo } from 'react';
+import { MessageCircle, X, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// Linear-inspired dark theme for the chat widget
+const FORAGE_THEME = {
+  theme: {
+    "--an-font-primary": "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+    "--an-accent": "#8b5cf6",
+    "--an-accent-foreground": "#ffffff",
+    "--an-radius-large": "16px",
+    "--an-radius-medium": "12px",
+    "--an-radius-small": "8px",
+    "--an-input-style": "rounded",
+    "--an-message-style": "bubble-right",
+    "--an-attachment-button-style": "paperclip",
+  },
+  light: {
+    "--an-background": "#0a0a0b",
+    "--an-foreground": "#fafafa",
+    "--an-muted": "#111113",
+    "--an-muted-foreground": "#a1a1aa",
+    "--an-user-message-bg": "#8b5cf6",
+    "--an-user-message-text": "#ffffff",
+    "--an-assistant-message-bg": "#18181b",
+    "--an-assistant-message-text": "#fafafa",
+    "--an-border": "rgba(255, 255, 255, 0.08)",
+    "--an-input-bg": "#111113",
+    "--an-shadow-sm": "0 1px 2px 0 rgba(0, 0, 0, 0.3)",
+    "--an-shadow": "0 4px 12px rgba(0, 0, 0, 0.4)",
+  },
+  dark: {
+    "--an-background": "#0a0a0b",
+    "--an-foreground": "#fafafa",
+    "--an-muted": "#111113",
+    "--an-muted-foreground": "#a1a1aa",
+    "--an-user-message-bg": "#8b5cf6",
+    "--an-user-message-text": "#ffffff",
+    "--an-assistant-message-bg": "#18181b",
+    "--an-assistant-message-text": "#fafafa",
+    "--an-border": "rgba(255, 255, 255, 0.08)",
+    "--an-input-bg": "#111113",
+  }
+};
+
+export default function Home() {
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const anChat = useMemo(() => createAnChat({
+    agent: "agent",
+    tokenUrl: "/api/an-token",
+  }), []);
+
+  const { messages, sendMessage, status, stop, error } = useChat({
+    chat: anChat,
+  });
+
+  return (
+    <div style={{ minHeight: '100vh', position: 'relative', overflowX: 'hidden' }}>
+      <Navbar />
+      <main>
+        <HeroSection />
+        <ProblemSection />
+        <MechanismSection />
+        <ValueStackSection />
+        <SkillsSection />
+        <HowItWorksSection />
+        <SocialProofSection />
+        <PricingSection />
+        <GuaranteeSection />
+        <FAQSection />
+        <FinalCTASection />
+      </main>
+      <Footer />
+
+      {/* Linear-style Chat Widget */}
+      {mounted && (
+        <div style={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          zIndex: 1000,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+        }}>
+          <AnimatePresence>
+            {isChatOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                style={{
+                  marginBottom: 16,
+                  width: 420,
+                  height: 600,
+                  maxHeight: '80vh',
+                  background: 'var(--background)',
+                  borderRadius: 20,
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 0 60px rgba(139, 92, 246, 0.15), 0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                {/* Header */}
+                <div style={{
+                  padding: '20px 24px',
+                  borderBottom: '1px solid var(--border)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: 'var(--background-secondary)',
+                  flexShrink: 0,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 10,
+                      background: 'linear-gradient(135deg, var(--accent) 0%, var(--cyan) 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 0 20px var(--accent-glow)',
+                    }}>
+                      <Sparkles size={20} style={{ color: 'white' }} />
+                    </div>
+                    <div>
+                      <h3 style={{
+                        fontSize: 15,
+                        fontWeight: 600,
+                        color: 'var(--foreground)',
+                        margin: 0,
+                        letterSpacing: '-0.01em',
+                      }}>
+                        Forage AI
+                      </h3>
+                      <p style={{
+                        fontSize: 12,
+                        color: 'var(--foreground-tertiary)',
+                        margin: 0,
+                      }}>
+                        Ask anything about Forage
+                      </p>
+                    </div>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsChatOpen(false)}
+                    style={{
+                      background: 'var(--glass)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      padding: 8,
+                      cursor: 'pointer',
+                      color: 'var(--foreground-tertiary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <X size={18} />
+                  </motion.button>
+                </div>
+
+                {/* Chat content */}
+                <div style={{
+                  flex: 1,
+                  overflow: 'hidden',
+                  position: 'relative',
+                }}>
+                  <AnAgentChat
+                    messages={messages}
+                    onSend={(msg) => {
+                      if (typeof sendMessage === 'function') {
+                        sendMessage({
+                          parts: [{ type: 'text', text: msg.content }]
+                        });
+                      }
+                    }}
+                    status={status}
+                    onStop={stop}
+                    error={error}
+                    theme={FORAGE_THEME as any}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Toggle button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsChatOpen(!isChatOpen)}
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: 16,
+              background: 'linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%)',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              boxShadow: '0 0 30px var(--accent-glow), 0 8px 32px rgba(139, 92, 246, 0.3)',
+              transition: 'all 0.2s',
+            }}
+          >
+            <AnimatePresence mode="wait">
+              {isChatOpen ? (
+                <motion.div
+                  key="close"
+                  initial={{ rotate: -90, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: 90, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <X size={26} />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="open"
+                  initial={{ rotate: 90, opacity: 0 }}
+                  animate={{ rotate: 0, opacity: 1 }}
+                  exit={{ rotate: -90, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <MessageCircle size={26} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.button>
+
+          {/* Tooltip when closed */}
+          <AnimatePresence>
+            {!isChatOpen && (
+              <motion.div
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ delay: 2, duration: 0.3 }}
+                style={{
+                  position: 'absolute',
+                  right: 76,
+                  bottom: 16,
+                  padding: '10px 16px',
+                  background: 'var(--background-secondary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+                }}
+              >
+                <p style={{
+                  fontSize: 13,
+                  color: 'var(--foreground)',
+                  margin: 0,
+                  fontWeight: 500,
+                }}>
+                  Got questions? Ask AI
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+    </div>
+  );
+}
