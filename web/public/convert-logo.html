@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Convert Logo to PNG</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #1a1a1a;
+      color: white;
+      font-family: system-ui, sans-serif;
+    }
+    canvas { margin: 20px; border: 1px solid #333; }
+    a {
+      display: inline-block;
+      padding: 12px 24px;
+      background: #8b5cf6;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      margin: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Forage Logo</h1>
+  <canvas id="canvas512" width="512" height="512"></canvas>
+  <div>
+    <a id="download512" download="logo-512.png">Download 512x512</a>
+    <a id="download256" download="logo-256.png">Download 256x256</a>
+    <a id="download128" download="logo-128.png">Download 128x128</a>
+    <a id="download64" download="logo-64.png">Download 64x64</a>
+  </div>
+
+  <script>
+    const img = new Image();
+    img.onload = function() {
+      // 512x512
+      const canvas512 = document.getElementById('canvas512');
+      const ctx512 = canvas512.getContext('2d');
+      ctx512.drawImage(img, 0, 0, 512, 512);
+      document.getElementById('download512').href = canvas512.toDataURL('image/png');
+
+      // 256x256
+      const canvas256 = document.createElement('canvas');
+      canvas256.width = 256;
+      canvas256.height = 256;
+      const ctx256 = canvas256.getContext('2d');
+      ctx256.drawImage(img, 0, 0, 256, 256);
+      document.getElementById('download256').href = canvas256.toDataURL('image/png');
+
+      // 128x128
+      const canvas128 = document.createElement('canvas');
+      canvas128.width = 128;
+      canvas128.height = 128;
+      const ctx128 = canvas128.getContext('2d');
+      ctx128.drawImage(img, 0, 0, 128, 128);
+      document.getElementById('download128').href = canvas128.toDataURL('image/png');
+
+      // 64x64
+      const canvas64 = document.createElement('canvas');
+      canvas64.width = 64;
+      canvas64.height = 64;
+      const ctx64 = canvas64.getContext('2d');
+      ctx64.drawImage(img, 0, 0, 64, 64);
+      document.getElementById('download64').href = canvas64.toDataURL('image/png');
+    };
+    img.src = '/logo.svg';
+  </script>
+</body>
+</html>
