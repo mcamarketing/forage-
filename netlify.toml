@@ -1,0 +1,11 @@
+[build]
+  command = "cd web && npm run build"
+  publish = "web/.next"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[plugins]
+  # Enable Next.js plugin if needed
