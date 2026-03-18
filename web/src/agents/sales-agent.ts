@@ -23,7 +23,12 @@ import {
   DynamicTool 
 } from 'langchain/tools';
 import { AsyncCaller } from '@langchain/core/utils/async_caller';
+import { getEnvironmentVariable } from '@langchain/core/utils/env';
 import axios from 'axios';
+
+if (process.env.LANGSMITH_API_KEY) {
+  process.env.LANGSMITH_TRACING_V2 = 'true';
+}
 
 const FORAGE_URL = process.env.FORAGE_URL || 'https://ernesta-labs--forage.apify.actor';
 const FORAGE_TOKEN = process.env.FORAGE_TOKEN;
@@ -31,12 +36,6 @@ const GRAPH_API_URL = process.env.GRAPH_API_URL || 'https://forage-graph-product
 const GRAPH_API_SECRET = process.env.GRAPH_API_SECRET;
 const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
 const LANGSMITH_PROJECT = process.env.LANGSMITH_PROJECT || 'forage-sales-agent';
-
-if (LANGSMITH_API_KEY) {
-  process.env.LANGSMITH_TRACING_V2 = 'true';
-  process.env.LANGSMITH_API_KEY = LANGSMITH_API_KEY;
-  process.env.LANGSMITH_PROJECT = LANGSMITH_PROJECT;
-}
 
 const embeddings = new OpenAIEmbeddings({
   openAIApiKey: process.env.OPENAI_API_KEY,
