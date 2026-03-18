@@ -1,24 +1,6 @@
 import { 
-  HumanMessage, 
-  SystemMessage, 
-  AIMessage,
-  ToolMessage 
-} from '@langchain/core/messages';
-import { 
-  createOpenAIFunctionsAgent,
-  AgentExecutor 
-} from 'langchain/agents';
-import { 
-  createConversationalAgent,
-  createReactAgent 
-} from 'langchain/agents';
-import { 
-  ChatOpenAI,
-  OpenAIEmbeddings 
+  ChatOpenAI
 } from '@langchain/openai';
-import { 
-  TavilySearch 
-} from '@langchain/community/tools/tavily_search';
 import { 
   DynamicTool 
 } from 'langchain/tools';
@@ -35,10 +17,14 @@ const FORAGE_TOKEN = process.env.FORAGE_TOKEN;
 const GRAPH_API_URL = process.env.GRAPH_API_URL || 'https://forage-graph-production.up.railway.app';
 const GRAPH_API_SECRET = process.env.GRAPH_API_SECRET || '6da69224eb14e6bdb0fb63514b772480d23a4467f8ac8a4b15266a8262d7f959';
 
+// Use DeepSeek instead of OpenAI
 const llm = new ChatOpenAI({
-  model: 'gpt-4.1',
+  model: 'deepseek-chat',
   temperature: 0.7,
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  configuration: {
+    baseURL: 'https://api.deepseek.com/v1',
+  },
 });
 
 // Traceable wrappers for LangSmith
@@ -107,7 +93,7 @@ Provide:
     const response = await llm.invoke(prompt);
     return response.content;
   },
-  { name: 'generate_summary', metadata: { model: 'gpt-4.1' } }
+  { name: 'generate_summary', metadata: { ls_provider: 'deepseek', ls_model_name: 'deepseek-chat' } }
 );
 
 const traceAddClaim = traceable(
