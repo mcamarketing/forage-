@@ -22,7 +22,6 @@ import {
 import { 
   DynamicTool 
 } from 'langchain/tools';
-import { AsyncCaller } from '@langchain/core/utils/async_caller';
 import { getEnvironmentVariable } from '@langchain/core/utils/env';
 import axios from 'axios';
 
@@ -33,47 +32,20 @@ if (process.env.LANGSMITH_API_KEY) {
 const FORAGE_URL = process.env.FORAGE_URL || 'https://ernesta-labs--forage.apify.actor';
 const FORAGE_TOKEN = process.env.FORAGE_TOKEN;
 const GRAPH_API_URL = process.env.GRAPH_API_URL || 'https://forage-graph-production.up.railway.app';
-const GRAPH_API_SECRET = process.env.GRAPH_API_SECRET;
-const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
-const LANGSMITH_PROJECT = process.env.LANGSMITH_PROJECT || 'forage-sales-agent';
-
-const embeddings = new OpenAIEmbeddings({
-  openAIApiKey: process.env.OPENAI_API_KEY,
-  model: 'text-embedding-3-small'
-});
-
-const callbacks = LANGSMITH_API_KEY ? [{
-  handleLLMStart: async (llm: any, prompts: string[]) => {
-    console.log('[LangSmith] LLM starting:', prompts[0]?.slice(0, 100));
-  },
-  handleToolStart: async (tool: any, input: string) => {
-    console.log('[LangSmith] Tool starting:', tool.name, input?.slice(0, 100));
-  },
-  handleToolEnd: async (tool: any, output: string) => {
-    console.log('[LangSmith] Tool ended:', tool.name, output?.slice(0, 100));
-  },
-  handleLLMEnd: async (output: any) => {
-    console.log('[LangSmith] LLM ended');
-  }
-}] : [];
+const GRAPH_API_SECRET = process.env.GRAPH_API_SECRET || '6da69224eb14e6bdb0fb63514b772480d23a4467f8ac8a4b15266a8262d7f959';
 
 const llm = new ChatOpenAI({
   model: 'gpt-4.1',
   temperature: 0.7,
   apiKey: process.env.OPENAI_API_KEY,
-  streaming: true,
-  callbacks: callbacks as any
 });
 
 async function callForageTool(toolName: string, args: Record<string, any>) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json, text/event-stream',
+    'Authorization': `Token ${FORAGE_TOKEN}`
   };
-  
-  if (FORAGE_TOKEN) {
-    headers['Authorization'] = `Token ${FORAGE_TOKEN}`;
-  }
 
   const initResponse = await fetch(`${FORAGE_URL}/?token=${FORAGE_TOKEN}`, {
     method: 'POST',
@@ -388,23 +360,89 @@ After research, always provide:
 Always use tools to gather real data. Never make up facts.`;
 
 export async function runSalesResearch(company: string, domain?: string): Promise<string> {
-  const prompt = `${SALES_AGENT_SYSTEM_PROMPT}
-
-Research ${company}${domain ? ` (${domain})` : ''} for B2B sales outreach. 
-Follow the research framework:
-1. Get company info and funding intelligence
-2. Check job signals and hiring trends
-3. Analyze tech stack
-4. Get regime status (stressed/normal)
-5. Find decision makers with verified emails
-6. Assess pain points and opportunities
-7. Provide priority score and pitch angle`;
+  const results: any = {
+    company,
+    domain: domain || company.toLowerCase().replace(/\s+/g, '') + '.com',
+    actions_taken: [],
+    errors: []
+  };
 
   try {
-    const response = await llm.invoke(prompt);
-    return response.content as string;
+    // Use the existing /api/agent endpoint for all Forage calls
+    const agentUrl = 'http://localhost:3000/api/agent';
+
+    // STEP 1: Get company info
+    results.actions_taken.push('Fetching company info via Forage...');
+    try {
+      const companyRes = await fetch(agentUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Get company info for ${domain || company}` }]
+        })
+      });
+      const companyData = await companyRes.json();
+      results.company_info = companyData.result;
+      results.actions_taken.push('✓ Got company info');
+    } catch (e: any) {
+      results.errors.push(`Company info: ${e.message}`);
+    }
+
+    // STEP 2: Search for funding/news
+    results.actions_taken.push('Searching for funding news...');
+    try {
+      const searchRes = await fetch(agentUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Search web for ${company} funding news 2024 2025` }]
+        })
+      });
+      const searchData = await searchRes.json();
+      results.news = searchData.result;
+      results.actions_taken.push('✓ Got news');
+    } catch (e: any) {
+      results.errors.push(`News: ${e.message}`);
+    }
+
+    // STEP 3: Find emails
+    results.actions_taken.push('Finding decision maker emails...');
+    try {
+      const emailRes = await fetch(agentUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Find emails for ${domain || company}` }]
+        })
+      });
+      const emailData = await emailRes.json();
+      results.emails = emailData.result;
+      results.actions_taken.push('✓ Got emails');
+    } catch (e: any) {
+      results.errors.push(`Emails: ${e.message}`);
+    }
+
+    // Generate summary using LLM
+    const summaryPrompt = `Based on this research data for ${company}, generate a concise B2B sales report:
+
+Company: ${JSON.stringify(results.company_info?.slice(0, 500) || 'N/A')}
+News: ${JSON.stringify(results.news?.slice(0, 500) || 'N/A')}
+Emails: ${JSON.stringify(results.emails?.slice(0, 500) || 'N/A')}
+
+Provide:
+1. Priority Score (1-10)
+2. Key Signals
+3. Best Contacts
+4. Pitch`;
+
+    const summary = await llm.invoke(summaryPrompt);
+    results.llm_summary = summary.content;
+    results.actions_taken.push('✓ Generated summary');
+
+    return JSON.stringify(results, null, 2);
+
   } catch (error: any) {
-    return `Error: ${error.message}`;
+    return JSON.stringify({ error: error.message, partial_results: results }, null, 2);
   }
 }
 
