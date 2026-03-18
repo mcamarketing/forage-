@@ -27,6 +27,7 @@ import axios from 'axios';
 
 if (process.env.LANGSMITH_API_KEY) {
   process.env.LANGSMITH_TRACING_V2 = 'true';
+  process.env.LANGSMITH_CALLBACKS_BACKGROUND = 'false';
 }
 
 const FORAGE_URL = process.env.FORAGE_URL || 'https://ernesta-labs--forage.apify.actor';
