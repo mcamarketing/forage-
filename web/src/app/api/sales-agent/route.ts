@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runSalesResearch, runTerritoryScan, runCompetitiveIntel } from '../../agents/sales-agent';
+import { runSalesResearch, runTerritoryScan, runCompetitiveIntel } from '../../../agents/sales-agent';
 
 export async function POST(req: NextRequest) {
   try {

@@ -17,6 +17,7 @@
     "@langchain/langgraph": "^0.2.56",
     "@langchain/openai": "^0.4.1",
     "ai": "^5.0.150",
+    "axios": "^1.13.6",
     "framer-motion": "^12.35.0",
     "langchain": "^0.3.14",
     "lucide-react": "^0.577.0",

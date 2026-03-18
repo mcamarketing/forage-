@@ -388,67 +388,58 @@ After research, always provide:
 
 Always use tools to gather real data. Never make up facts.`;
 
-export async function createSalesAgent() {
-  const agent = await createReactAgent({
-    llm,
-    tools,
-    messageModifier: new SystemMessage(SALES_AGENT_SYSTEM_PROMPT)
-  });
-
-  const executor = new AgentExecutor({
-    agent,
-    tools,
-    verbose: true,
-    maxIterations: 10,
-    returnIntermediateSteps: true
-  });
-
-  return executor;
-}
-
 export async function runSalesResearch(company: string, domain?: string): Promise<string> {
-  const executor = await createSalesAgent();
-  
-  const result = await executor.invoke({
-    input: `Research ${company}${domain ? ` (${domain})` : ''} for B2B sales outreach. 
-    Follow the research framework:
-    1. Get company info and funding intelligence
-    2. Check job signals and hiring trends
-    3. Analyze tech stack
-    4. Get regime status (stressed/normal)
-    5. Find decision makers with verified emails
-    6. Assess pain points and opportunities
-    7. Provide priority score and pitch angle`
-  });
+  const prompt = `${SALES_AGENT_SYSTEM_PROMPT}
 
-  return result.output;
+Research ${company}${domain ? ` (${domain})` : ''} for B2B sales outreach. 
+Follow the research framework:
+1. Get company info and funding intelligence
+2. Check job signals and hiring trends
+3. Analyze tech stack
+4. Get regime status (stressed/normal)
+5. Find decision makers with verified emails
+6. Assess pain points and opportunities
+7. Provide priority score and pitch angle`;
+
+  try {
+    const response = await llm.invoke(prompt);
+    return response.content as string;
+  } catch (error: any) {
+    return `Error: ${error.message}`;
+  }
 }
 
 export async function runTerritoryScan(keyword: string, location: string): Promise<string> {
-  const executor = await createSalesAgent();
-  
-  const result = await executor.invoke({
-    input: `Find B2B leads for "${keyword}" in "${location}".
-    1. Use find_leads to get companies
-    2. For top 5 companies, get company intelligence in parallel
-    3. Identify highest priority prospects
-    4. Return ranked list with scores`
-  });
+  const prompt = `${SALES_AGENT_SYSTEM_PROMPT}
 
-  return result.output;
+Find B2B leads for "${keyword}" in "${location}".
+1. Use find_leads to get companies
+2. For top 5 companies, get company intelligence in parallel
+3. Identify highest priority prospects
+4. Return ranked list with scores`;
+
+  try {
+    const response = await llm.invoke(prompt);
+    return response.content as string;
+  } catch (error: any) {
+    return `Error: ${error.message}`;
+  }
 }
 
 export async function runCompetitiveIntel(competitor: string): Promise<string> {
-  const executor = await createSalesAgent();
-  
-  const result = await executor.invoke({
-    input: `Research competitive landscape for "${competitor}".
-    1. Get competitor's tech stack
-    2. Find their customers (use search_web)
-    3. Identify gaps/weaknesses
-    4. Find companies using competitor that could switch
-    5. Provide switch pitch angles`
-  });
+  const prompt = `${SALES_AGENT_SYSTEM_PROMPT}
 
-  return result.output;
+Research competitive landscape for "${competitor}".
+1. Get competitor's tech stack
+2. Find their customers (use search_web)
+3. Identify gaps/weaknesses
+4. Find companies using competitor that could switch
+5. Provide switch pitch angles`;
+
+  try {
+    const response = await llm.invoke(prompt);
+    return response.content as string;
+  } catch (error: any) {
+    return `Error: ${error.message}`;
+  }
 }
