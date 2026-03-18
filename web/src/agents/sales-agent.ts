@@ -98,32 +98,44 @@ Provide:
 
 const traceAddClaim = traceable(
   async (company: string, claim: string) => {
-    const res = await axios.post(`${GRAPH_API_URL}/claim`, {
-      entity: company,
-      relation: 'researched_by',
-      target: 'forage-sales-agent',
-      assertion: claim,
-      source_url: 'https://forage.ai/sales-agent',
-      confidence: 0.9
-    }, {
-      headers: { Authorization: `Bearer ${GRAPH_API_SECRET}` }
-    });
-    return res.data;
+    try {
+      const res = await axios.post(`${GRAPH_API_URL}/claim`, {
+        entity: company,
+        relation: 'researched_by',
+        target: 'forage-sales-agent',
+        assertion: claim,
+        source_url: 'https://forage.ai/sales-agent',
+        confidence: 0.9
+      }, {
+        headers: { Authorization: `Bearer ${GRAPH_API_SECRET}` },
+        timeout: 5000
+      });
+      return res.data;
+    } catch (e: any) {
+      console.error('Failed to add claim:', e.message);
+      return { error: e.message };
+    }
   },
   { name: 'add_claim', metadata: { graph: 'knowledge' } }
 );
 
 const traceAddSignal = traceable(
   async (company: string, value: number) => {
-    const res = await axios.post(`${GRAPH_API_URL}/signal`, {
-      entity: company,
-      metric: 'sales_interest_score',
-      value,
-      timestamp: Date.now()
-    }, {
-      headers: { Authorization: `Bearer ${GRAPH_API_SECRET}` }
-    });
-    return res.data;
+    try {
+      const res = await axios.post(`${GRAPH_API_URL}/signal`, {
+        entity: company,
+        metric: 'sales_interest_score',
+        value,
+        timestamp: Date.now()
+      }, {
+        headers: { Authorization: `Bearer ${GRAPH_API_SECRET}` },
+        timeout: 5000
+      });
+      return res.data;
+    } catch (e: any) {
+      console.error('Failed to add signal:', e.message);
+      return { error: e.message };
+    }
   },
   { name: 'add_signal', metadata: { graph: 'knowledge' } }
 );

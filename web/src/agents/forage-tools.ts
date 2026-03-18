@@ -1,282 +1,258 @@
-import { ForageTools } from './forage-tools.js';
+import { DynamicTool } from 'langchain/tools';
+import axios from 'axios';
 
-export const FORAGE_TOOLS = [
-  // Core Tools
-  {
-    name: 'search_web',
-    description: 'Real-time web search. Use for current information, news, or when you need results stored in knowledge graph.',
-    schema: {
-      type: 'object',
-      properties: {
-        query: { type: 'string' },
-        num_results: { type: 'number', default: 10 }
-      },
-      required: ['query']
-    }
-  },
-  {
-    name: 'scrape_page',
-    description: 'Extract clean text content from any URL.',
-    schema: {
-      type: 'object',
-      properties: { url: { type: 'string' } },
-      required: ['url']
-    }
-  },
-  {
-    name: 'get_company_info',
-    description: 'Get website summary and email contacts for a company domain.',
-    schema: {
-      type: 'object',
-      properties: {
-        domain: { type: 'string' },
-        find_emails: { type: 'boolean', default: true }
-      },
-      required: ['domain']
-    }
-  },
-  {
-    name: 'find_emails',
-    description: 'Find verified email addresses for people at a company.',
-    schema: {
-      type: 'object',
-      properties: {
-        domain: { type: 'string' },
-        limit: { type: 'number', default: 10 }
-      },
-      required: ['domain']
-    }
-  },
-  {
-    name: 'find_leads',
-    description: 'Generate B2B lead list with verified emails. Filter by job_title, location, industry.',
-    schema: {
-      type: 'object',
-      properties: {
-        job_title: { type: 'string' },
-        location: { type: 'string' },
-        industry: { type: 'string' },
-        company_size: { type: 'string' },
-        num_leads: { type: 'number', default: 100 }
-      },
-      required: ['job_title']
-    }
-  },
-  // Knowledge Graph Tools
-  {
-    name: 'query_knowledge',
-    description: 'Search the knowledge graph for previously researched entities.',
-    schema: {
-      type: 'object',
-      properties: {
-        question: { type: 'string' },
-        entity_type: { type: 'string', enum: ['Company', 'Person', 'Location', 'Industry', 'any'], default: 'any' }
-      },
-      required: ['question']
-    }
-  },
-  {
-    name: 'enrich_entity',
-    description: 'Retrieve all accumulated data about a company from the knowledge graph.',
-    schema: {
-      type: 'object',
-      properties: {
-        identifier: { type: 'string' }
-      },
-      required: ['identifier']
-    }
-  },
-  {
-    name: 'get_claims',
-    description: 'Retrieve all claims/provenance assertions for an entity from the knowledge graph.',
-    schema: {
-      type: 'object',
-      properties: {
-        entity: { type: 'string' }
-      },
-      required: ['entity']
-    }
-  },
-  {
-    name: 'add_claim',
-    description: 'Add a provenance claim to the knowledge graph.',
-    schema: {
-      type: 'object',
-      properties: {
-        entity: { type: 'string' },
-        relation: { type: 'string' },
-        target: { type: 'string' },
-        assertion: { type: 'string' },
-        source_url: { type: 'string' },
-        confidence: { type: 'number', default: 0.8 }
-      },
-      required: ['entity', 'relation', 'target', 'assertion']
-    }
-  },
-  {
-    name: 'get_regime',
-    description: 'Get the current regime label for an entity (normal, stressed, pre_tipping, post_event).',
-    schema: {
-      type: 'object',
-      properties: {
-        entity: { type: 'string' }
-      },
-      required: ['entity']
-    }
-  },
-  {
-    name: 'set_regime',
-    description: 'Set the regime label for an entity.',
-    schema: {
-      type: 'object',
-      properties: {
-        entity: { type: 'string' },
-        regime: { type: 'string', enum: ['normal', 'stressed', 'pre_tipping', 'post_event'] }
-      },
-      required: ['entity', 'regime']
-    }
-  },
-  {
-    name: 'get_signals',
-    description: 'Retrieve time-series signal data for an entity.',
-    schema: {
-      type: 'object',
-      properties: {
-        entity: { type: 'string' },
-        metric: { type: 'string' },
-        limit: { type: 'number', default: 100 }
-      },
-      required: ['entity']
-    }
-  },
-  {
-    name: 'add_signal',
-    description: 'Add a time-series data point for an entity.',
-    schema: {
-      type: 'object',
-      properties: {
-        entity: { type: 'string' },
-        metric: { type: 'string' },
-        value: { type: 'number' },
-        timestamp: { type: 'number' }
-      },
-      required: ['entity', 'metric', 'value']
-    }
-  },
-  {
-    name: 'get_causal_parents',
-    description: 'Find entities that drive/caused this entity upstream.',
-    schema: {
-      type: 'object',
-      properties: {
-        entity: { type: 'string' },
-        limit: { type: 'number', default: 10 }
-      },
-      required: ['entity']
-    }
-  },
-  {
-    name: 'get_causal_children',
-    description: 'Find entities this entity drives downstream.',
-    schema: {
-      type: 'object',
-      properties: {
-        entity: { type: 'string' },
-        limit: { type: 'number', default: 10 }
-      },
-      required: ['entity']
-    }
-  },
-  {
-    name: 'get_causal_path',
-    description: 'Find the highest causal-weight path between two entities.',
-    schema: {
-      type: 'object',
-      properties: {
-        from_entity: { type: 'string' },
-        to_entity: { type: 'string' }
-      },
-      required: ['from_entity', 'to_entity']
-    }
-  },
-  {
-    name: 'simulate',
-    description: 'Simulate a shock/boost/remove intervention on an entity.',
-    schema: {
-      type: 'object',
-      properties: {
-        entity: { type: 'string' },
-        intervention: { type: 'string', enum: ['shock', 'boost', 'remove'] },
-        depth: { type: 'number', default: 3 }
-      },
-      required: ['entity', 'intervention']
-    }
-  },
-  // Skills
-  {
-    name: 'skill_company_dossier',
-    description: 'Comprehensive company research with website summary, emails, and 10 key contacts.',
-    schema: {
-      type: 'object',
-      properties: { domain: { type: 'string' } },
-      required: ['domain']
-    }
-  },
-  {
-    name: 'skill_prospect_company',
-    description: 'Find 15 decision makers at a company with verified emails.',
-    schema: {
-      type: 'object',
-      properties: {
-        domain: { type: 'string' },
-        seniority: { type: 'string', default: 'senior,director,vp,c_suite' }
-      },
-      required: ['domain']
-    }
-  },
-  {
-    name: 'skill_funding_intel',
-    description: 'Get funding history, investors, and recent news for a company.',
-    schema: {
-      type: 'object',
-      properties: {
-        company_name: { type: 'string' },
-        domain: { type: 'string' }
-      },
-      required: ['company_name']
-    }
-  },
-  {
-    name: 'skill_job_signals',
-    description: 'Analyze job listings to reveal hiring strategy and growth areas.',
-    schema: {
-      type: 'object',
-      properties: {
-        company_name: { type: 'string' },
-        domain: { type: 'string' }
-      },
-      required: ['company_name']
-    }
-  },
-  {
-    name: 'skill_tech_stack',
-    description: 'Detect technologies and platforms a company uses.',
-    schema: {
-      type: 'object',
-      properties: { domain: { type: 'string' } },
-      required: ['domain']
-    }
-  },
-  {
-    name: 'skill_competitor_intel',
-    description: 'Analyze competitor pricing, features, and reviews.',
-    schema: {
-      type: 'object',
-      properties: {
-        competitor_url: { type: 'string' },
-        focus: { type: 'string', enum: ['pricing', 'features', 'both'], default: 'both' }
-      },
-      required: ['competitor_url']
+const FORAGE_API_URL = process.env.FORAGE_API_URL || 'https://api.forage.ai';
+const FORAGE_API_KEY = process.env.FORAGE_API_KEY;
+const GRAPH_API_URL = process.env.GRAPH_API_URL || 'https://forage-graph-production.up.railway.app';
+const GRAPH_API_SECRET = process.env.GRAPH_API_SECRET;
+
+export interface ForageCompanyData {
+  domain: string;
+  name?: string;
+  description?: string;
+  industry?: string;
+  size?: string;
+  funding?: any;
+  techStack?: string[];
+  signals?: any;
+  error?: string;
+}
+
+export interface ForageSignal {
+  entity: string;
+  metric: string;
+  value: number;
+  timestamp?: number;
+}
+
+export interface ForageClaim {
+  entity: string;
+  relation: string;
+  target: string;
+  assertion: string;
+  confidence: number;
+}
+
+class ForageClient {
+  private baseUrl: string;
+  private apiKey: string;
+  
+  constructor(baseUrl?: string, apiKey?: string) {
+    this.baseUrl = baseUrl || FORAGE_API_URL;
+    this.apiKey = apiKey || FORAGE_API_KEY || '';
+  }
+  
+  async searchWeb(query: string): Promise<string> {
+    try {
+      const res = await axios.post(`${this.baseUrl}/api/agent`, {
+        messages: [{ role: 'user', content: `Search: ${query}` }]
+      }, { timeout: 30000 });
+      return res.data.result || JSON.stringify(res.data);
+    } catch (e: any) {
+      return JSON.stringify({ error: e.message });
     }
   }
-];
+  
+  async getCompanyInfo(domain: string): Promise<ForageCompanyData> {
+    try {
+      const res = await axios.post(`${this.baseUrl}/api/agent`, {
+        messages: [{ role: 'user', content: `Get company info for ${domain}` }]
+      }, { timeout: 30000 });
+      return res.data.result || { domain };
+    } catch (e: any) {
+      return { domain, error: e.message };
+    }
+  }
+  
+  async findEmails(domain: string): Promise<string[]> {
+    try {
+      const res = await axios.post(`${this.baseUrl}/api/agent`, {
+        messages: [{ role: 'user', content: `Find emails for ${domain}` }]
+      }, { timeout: 30000 });
+      return res.data.result || [];
+    } catch (e: any) {
+      return [];
+    }
+  }
+  
+  async getFundingIntel(company: string): Promise<any> {
+    try {
+      const res = await axios.post(`${this.baseUrl}/api/agent`, {
+        messages: [{ role: 'user', content: `Get funding intel for ${company}` }]
+      }, { timeout: 30000 });
+      return res.data.result || {};
+    } catch (e: any) {
+      return { error: e.message };
+    }
+  }
+  
+  async getJobSignals(company: string): Promise<any> {
+    try {
+      const res = await axios.post(`${this.baseUrl}/api/agent`, {
+        messages: [{ role: 'user', content: `Get job signals for ${company}` }]
+      }, { timeout: 30000 });
+      return res.data.result || {};
+    } catch (e: any) {
+      return { error: e.message };
+    }
+  }
+  
+  async getTechStack(domain: string): Promise<string[]> {
+    try {
+      const res = await axios.post(`${this.baseUrl}/api/agent`, {
+        messages: [{ role: 'user', content: `Get tech stack for ${domain}` }]
+      }, { timeout: 30000 });
+      return res.data.result || [];
+    } catch (e: any) {
+      return [];
+    }
+  }
+  
+  async addClaim(claim: ForageClaim): Promise<any> {
+    try {
+      const res = await axios.post(`${GRAPH_API_URL}/claim`, claim, {
+        headers: { Authorization: `Bearer ${GRAPH_API_SECRET}` },
+        timeout: 5000
+      });
+      return res.data;
+    } catch (e: any) {
+      return { error: e.message };
+    }
+  }
+  
+  async addSignal(signal: ForageSignal): Promise<any> {
+    try {
+      const res = await axios.post(`${GRAPH_API_URL}/signal`, signal, {
+        headers: { Authorization: `Bearer ${GRAPH_API_SECRET}` },
+        timeout: 5000
+      });
+      return res.data;
+    } catch (e: any) {
+      return { error: e.message };
+    }
+  }
+  
+  async getClaims(entity: string): Promise<any[]> {
+    try {
+      const res = await axios.get(`${GRAPH_API_URL}/claims/${entity}`, {
+        headers: { Authorization: `Bearer ${GRAPH_API_SECRET}` },
+        timeout: 5000
+      });
+      return res.data || [];
+    } catch (e: any) {
+      return [];
+    }
+  }
+  
+  async getSignals(entity: string): Promise<ForageSignal[]> {
+    try {
+      const res = await axios.get(`${GRAPH_API_URL}/signals/${entity}`, {
+        headers: { Authorization: `Bearer ${GRAPH_API_SECRET}` },
+        timeout: 5000
+      });
+      return res.data || [];
+    } catch (e: any) {
+      return [];
+    }
+  }
+  
+  async getRegime(entity: string): Promise<any> {
+    try {
+      const res = await axios.get(`${GRAPH_API_URL}/regime/${entity}`, {
+        headers: { Authorization: `Bearer ${GRAPH_API_SECRET}` },
+        timeout: 5000
+      });
+      return res.data || {};
+    } catch (e: any) {
+      return { error: e.message };
+    }
+  }
+}
+
+const forageClient = new ForageClient();
+
+export const createForageTools = (client?: ForageClient): DynamicTool[] => {
+  const fc = client || forageClient;
+  
+  return [
+    new DynamicTool({
+      name: 'search_web',
+      description: 'Search the web for current information, news, data, and trends. Use for real-time research.',
+      func: async (query: string) => JSON.stringify(await fc.searchWeb(query))
+    }),
+    new DynamicTool({
+      name: 'get_company_info',
+      description: 'Get comprehensive company data: name, description, industry, size, funding, key contacts. Essential for sales research.',
+      func: async (domain: string) => JSON.stringify(await fc.getCompanyInfo(domain))
+    }),
+    new DynamicTool({
+      name: 'find_emails',
+      description: 'Find verified work emails for people at a company. Returns array of {name, email, title}.',
+      func: async (domain: string) => JSON.stringify(await fc.findEmails(domain))
+    }),
+    new DynamicTool({
+      name: 'skill_funding_intel',
+      description: 'Get funding history, investors, valuation changes, and financial signals. Critical for deal qualification.',
+      func: async (company: string) => JSON.stringify(await fc.getFundingIntel(company))
+    }),
+    new DynamicTool({
+      name: 'skill_job_signals',
+      description: 'Analyze job listings to reveal hiring strategy, growth areas, and team expansion. Predicts company trajectory.',
+      func: async (company: string) => JSON.stringify(await fc.getJobSignals(company))
+    }),
+    new DynamicTool({
+      name: 'skill_tech_stack',
+      description: 'Detect technologies and platforms a company uses. Reveals integration opportunities and tech debt.',
+      func: async (domain: string) => JSON.stringify(await fc.getTechStack(domain))
+    }),
+    new DynamicTool({
+      name: 'add_claim',
+      description: 'Record a factual finding in the knowledge graph. Input: {entity, assertion, relation?}',
+      func: async (args: string) => {
+        const { entity, assertion, relation } = JSON.parse(args);
+        return JSON.stringify(await fc.addClaim({ entity, relation: relation || 'researched_by', target: 'forage-agent', assertion, confidence: 0.9 }));
+      }
+    }),
+    new DynamicTool({
+      name: 'add_signal',
+      description: 'Track a quantitative metric in the knowledge graph. Input: {entity, metric, value}',
+      func: async (args: string) => {
+        const { entity, metric, value } = JSON.parse(args);
+        return JSON.stringify(await fc.addSignal({ entity, metric, value, timestamp: Date.now() }));
+      }
+    }),
+    new DynamicTool({
+      name: 'get_claims',
+      description: 'Retrieve previously recorded claims about an entity from knowledge graph.',
+      func: async (entity: string) => JSON.stringify(await fc.getClaims(entity))
+    }),
+    new DynamicTool({
+      name: 'get_signals',
+      description: 'Retrieve tracked metrics and signals for an entity from knowledge graph.',
+      func: async (entity: string) => JSON.stringify(await fc.getSignals(entity))
+    }),
+    new DynamicTool({
+      name: 'get_regime',
+      description: 'Get the current operational regime/trends for an entity. Reveals stability, growth, or risk.',
+      func: async (entity: string) => JSON.stringify(await fc.getRegime(entity))
+    }),
+  ];
+};
+
+export const FORAGE_TOOLS = createForageTools();
+
+export { ForageClient, forageClient };
+
+export const TOOL_DESCRIPTIONS = {
+  search_web: 'Web search for news, data, trends',
+  get_company_info: 'Company research & profile',
+  find_emails: 'Email discovery',
+  skill_funding_intel: 'Funding & valuation data',
+  skill_job_signals: 'Hiring strategy analysis',
+  skill_tech_stack: 'Technology detection',
+  add_claim: 'Record knowledge to graph',
+  add_signal: 'Track metrics to graph',
+  get_claims: 'Query knowledge graph',
+  get_signals: 'Query signal history',
+  get_regime: 'Get entity regime/trends'
+};
