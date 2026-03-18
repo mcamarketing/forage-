@@ -22,7 +22,7 @@ import {
 import { 
   DynamicTool 
 } from 'langchain/tools';
-import { getEnvironmentVariable } from '@langchain/core/utils/env';
+import { traceable } from 'langsmith/traceable';
 import axios from 'axios';
 
 if (process.env.LANGSMITH_API_KEY) {
@@ -39,6 +39,151 @@ const llm = new ChatOpenAI({
   temperature: 0.7,
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// Traceable wrappers for LangSmith
+const traceCompanyInfo = traceable(
+  async (company: string, domain?: string) => {
+    const agentUrl = process.env.AGENT_URL || 'http://localhost:3000/api/agent';
+    const res = await fetch(agentUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: `Get company info for ${domain || company}` }]
+      })
+    });
+    const data = await res.json();
+    return data.result;
+  },
+  { name: 'get_company_info', metadata: { tool: 'forage', action: 'company_intel' } }
+);
+
+const traceSearchNews = traceable(
+  async (company: string) => {
+    const agentUrl = process.env.AGENT_URL || 'http://localhost:3000/api/agent';
+    const res = await fetch(agentUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: `Search web for ${company} funding news 2024 2025` }]
+      })
+    });
+    const data = await res.json();
+    return data.result;
+  },
+  { name: 'search_news', metadata: { tool: 'forage', action: 'news' } }
+);
+
+const traceFindEmails = traceable(
+  async (company: string, domain?: string) => {
+    const agentUrl = process.env.AGENT_URL || 'http://localhost:3000/api/agent';
+    const res = await fetch(agentUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: `Find emails for ${domain || company}` }]
+      })
+    });
+    const data = await res.json();
+    return data.result;
+  },
+  { name: 'find_emails', metadata: { tool: 'forage', action: 'lead_generation' } }
+);
+
+const traceGenerateSummary = traceable(
+  async (company: string, data: any) => {
+    const prompt = `Based on this research data for ${company}, generate a concise B2B sales report:
+
+Company: ${JSON.stringify(data.companyInfo?.slice(0, 500) || 'N/A')}
+News: ${JSON.stringify(data.news?.slice(0, 500) || 'N/A')}
+Emails: ${JSON.stringify(data.emails?.slice(0, 500) || 'N/A')}
+
+Provide:
+1. Priority Score (1-10)
+2. Key Signals
+3. Best Contacts  
+4. Pitch`;
+
+    const response = await llm.invoke(prompt);
+    return response.content;
+  },
+  { name: 'generate_summary', metadata: { model: 'gpt-4.1' } }
+);
+
+const traceAddClaim = traceable(
+  async (company: string, claim: string) => {
+    const res = await axios.post(`${GRAPH_API_URL}/claim`, {
+      entity: company,
+      relation: 'researched_by',
+      target: 'forage-sales-agent',
+      assertion: claim,
+      source_url: 'https://forage.ai/sales-agent',
+      confidence: 0.9
+    }, {
+      headers: { Authorization: `Bearer ${GRAPH_API_SECRET}` }
+    });
+    return res.data;
+  },
+  { name: 'add_claim', metadata: { graph: 'knowledge' } }
+);
+
+const traceAddSignal = traceable(
+  async (company: string, value: number) => {
+    const res = await axios.post(`${GRAPH_API_URL}/signal`, {
+      entity: company,
+      metric: 'sales_interest_score',
+      value,
+      timestamp: Date.now()
+    }, {
+      headers: { Authorization: `Bearer ${GRAPH_API_SECRET}` }
+    });
+    return res.data;
+  },
+  { name: 'add_signal', metadata: { graph: 'knowledge' } }
+);
+
+const traceFullResearch = traceable(
+  async (company: string, domain?: string) => {
+    const results: any = { company, domain: domain || company.toLowerCase().replace(/\s+/g, '') + '.com', actions: [] };
+    
+    // Step 1: Get company info
+    results.actions.push('Fetching company info...');
+    results.companyInfo = await traceCompanyInfo(company, domain);
+    results.actions.push('✓ Got company info');
+    
+    // Step 2: Search news
+    results.actions.push('Searching news...');
+    results.news = await traceSearchNews(company);
+    results.actions.push('✓ Got news');
+    
+    // Step 3: Find emails
+    results.actions.push('Finding emails...');
+    results.emails = await traceFindEmails(company, domain);
+    results.actions.push('✓ Got emails');
+    
+    // Step 4: Generate summary
+    results.summary = await traceGenerateSummary(company, results);
+    results.actions.push('✓ Generated summary');
+    
+    // Step 5: Add to knowledge graph
+    results.actions.push('Adding to knowledge graph...');
+    try {
+      await traceAddClaim(company, `Researched: Priority based on available data.`);
+      results.actions.push('✓ Added claim');
+    } catch (e: any) {
+      results.graphError = e.message;
+    }
+    
+    try {
+      await traceAddSignal(company, results.emails?.includes('@') ? 8 : 5);
+      results.actions.push('✓ Added signal');
+    } catch (e: any) {
+      results.signalError = e.message;
+    }
+    
+    return results;
+  },
+  { name: 'full_research', metadata: { agent: 'sales', version: '1.0' } }
+);
 
 async function callForageTool(toolName: string, args: Record<string, any>) {
   const headers: Record<string, string> = {
@@ -360,89 +505,23 @@ After research, always provide:
 Always use tools to gather real data. Never make up facts.`;
 
 export async function runSalesResearch(company: string, domain?: string): Promise<string> {
-  const results: any = {
-    company,
-    domain: domain || company.toLowerCase().replace(/\s+/g, '') + '.com',
-    actions_taken: [],
-    errors: []
-  };
-
   try {
-    // Use the existing /api/agent endpoint for all Forage calls
-    const agentUrl = 'http://localhost:3000/api/agent';
-
-    // STEP 1: Get company info
-    results.actions_taken.push('Fetching company info via Forage...');
-    try {
-      const companyRes = await fetch(agentUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: `Get company info for ${domain || company}` }]
-        })
-      });
-      const companyData = await companyRes.json();
-      results.company_info = companyData.result;
-      results.actions_taken.push('✓ Got company info');
-    } catch (e: any) {
-      results.errors.push(`Company info: ${e.message}`);
-    }
-
-    // STEP 2: Search for funding/news
-    results.actions_taken.push('Searching for funding news...');
-    try {
-      const searchRes = await fetch(agentUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: `Search web for ${company} funding news 2024 2025` }]
-        })
-      });
-      const searchData = await searchRes.json();
-      results.news = searchData.result;
-      results.actions_taken.push('✓ Got news');
-    } catch (e: any) {
-      results.errors.push(`News: ${e.message}`);
-    }
-
-    // STEP 3: Find emails
-    results.actions_taken.push('Finding decision maker emails...');
-    try {
-      const emailRes = await fetch(agentUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: `Find emails for ${domain || company}` }]
-        })
-      });
-      const emailData = await emailRes.json();
-      results.emails = emailData.result;
-      results.actions_taken.push('✓ Got emails');
-    } catch (e: any) {
-      results.errors.push(`Emails: ${e.message}`);
-    }
-
-    // Generate summary using LLM
-    const summaryPrompt = `Based on this research data for ${company}, generate a concise B2B sales report:
-
-Company: ${JSON.stringify(results.company_info?.slice(0, 500) || 'N/A')}
-News: ${JSON.stringify(results.news?.slice(0, 500) || 'N/A')}
-Emails: ${JSON.stringify(results.emails?.slice(0, 500) || 'N/A')}
-
-Provide:
-1. Priority Score (1-10)
-2. Key Signals
-3. Best Contacts
-4. Pitch`;
-
-    const summary = await llm.invoke(summaryPrompt);
-    results.llm_summary = summary.content;
-    results.actions_taken.push('✓ Generated summary');
-
-    return JSON.stringify(results, null, 2);
-
+    const results = await traceFullResearch(company, domain);
+    return JSON.stringify({
+      company: results.company,
+      domain: results.domain,
+      actions_taken: results.actions,
+      company_info: results.companyInfo?.slice(0, 1000),
+      news: results.news?.slice(0, 1000),
+      emails: results.emails?.slice(0, 1000),
+      summary: results.summary,
+      knowledge_graph: {
+        claim_added: !results.graphError,
+        signal_added: !results.signalError
+      }
+    }, null, 2);
   } catch (error: any) {
-    return JSON.stringify({ error: error.message, partial_results: results }, null, 2);
+    return JSON.stringify({ error: error.message }, null, 2);
   }
 }
 
