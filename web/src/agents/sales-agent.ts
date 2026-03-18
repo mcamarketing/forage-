@@ -22,23 +22,48 @@ import {
 import { 
   DynamicTool 
 } from 'langchain/tools';
+import { AsyncCaller } from '@langchain/core/utils/async_caller';
 import axios from 'axios';
 
 const FORAGE_URL = process.env.FORAGE_URL || 'https://ernesta-labs--forage.apify.actor';
 const FORAGE_TOKEN = process.env.FORAGE_TOKEN;
 const GRAPH_API_URL = process.env.GRAPH_API_URL || 'https://forage-graph-production.up.railway.app';
 const GRAPH_API_SECRET = process.env.GRAPH_API_SECRET;
+const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
+const LANGSMITH_PROJECT = process.env.LANGSMITH_PROJECT || 'forage-sales-agent';
+
+if (LANGSMITH_API_KEY) {
+  process.env.LANGSMITH_TRACING_V2 = 'true';
+  process.env.LANGSMITH_API_KEY = LANGSMITH_API_KEY;
+  process.env.LANGSMITH_PROJECT = LANGSMITH_PROJECT;
+}
 
 const embeddings = new OpenAIEmbeddings({
   openAIApiKey: process.env.OPENAI_API_KEY,
   model: 'text-embedding-3-small'
 });
 
+const callbacks = LANGSMITH_API_KEY ? [{
+  handleLLMStart: async (llm: any, prompts: string[]) => {
+    console.log('[LangSmith] LLM starting:', prompts[0]?.slice(0, 100));
+  },
+  handleToolStart: async (tool: any, input: string) => {
+    console.log('[LangSmith] Tool starting:', tool.name, input?.slice(0, 100));
+  },
+  handleToolEnd: async (tool: any, output: string) => {
+    console.log('[LangSmith] Tool ended:', tool.name, output?.slice(0, 100));
+  },
+  handleLLMEnd: async (output: any) => {
+    console.log('[LangSmith] LLM ended');
+  }
+}] : [];
+
 const llm = new ChatOpenAI({
   model: 'gpt-4.1',
   temperature: 0.7,
   apiKey: process.env.OPENAI_API_KEY,
   streaming: true,
+  callbacks: callbacks as any
 });
 
 async function callForageTool(toolName: string, args: Record<string, any>) {
