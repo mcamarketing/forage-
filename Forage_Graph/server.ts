@@ -27,6 +27,7 @@
  */
 
 import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
 import { knowledgeGraph } from './knowledge-graph.js';
 
 const app  = express();
@@ -41,6 +42,11 @@ if (!SECRET) {
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 
 app.use(express.json({ limit: '10mb' }));
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Request logging
 app.use((req: Request, _res: Response, next: NextFunction) => {

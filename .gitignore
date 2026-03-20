@@ -20,6 +20,9 @@
 # production
 /build
 
+# compiled output
+Forage_Graph/dist/
+
 # misc
 .DS_Store
 *.pem
